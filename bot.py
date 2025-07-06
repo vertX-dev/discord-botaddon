@@ -109,21 +109,33 @@ async def on_message(message):
 
             if os.path.exists(fixed_path):
                 if summaries:
-                    embed = discord.Embed(
-                        title="✅ Addon Tags Fixed",
-                        description=f"**File:** `{attachment.filename}`\n**Modified Files:** `{len(summaries)}`",
-                        color=0x00ff80
-                    )
+    embed = discord.Embed(
+        title="✅ Addon Tags Fixed",
+        description=f"**File:** `{attachment.filename}`\n**Modified Files:** `{len(summaries)}`",
+        color=0x00ff80
+    )
 
-                    for summary in summaries:
-                        tags_display = '\n'.join(f"• `{tag}`" for tag in summary['tags_added'])
-                        embed.add_field(
-                            name=f"🧩 {summary['file']} ({len(summary['tags_added'])} tag{'s' if len(summary['tags_added']) != 1 else ''})",
-                            value=tags_display,
-                            inline=False
-                        )
+    total_chars = len(embed.description)
+    max_embed_chars = 5900  # leave room for Discord's limit
+    max_fields = 10  # Show at most 10 files
+    cutoff = False
 
-                    await message.channel.send(embed=embed)
+    for summary in summaries[:max_fields]:
+        tag_list = '\n'.join(f"• `{tag}`" for tag in summary["tags_added"])
+        if total_chars + len(summary["file"]) + len(tag_list) > max_embed_chars:
+            cutoff = True
+            break
+        embed.add_field(
+            name=f"🧩 `{summary['file']}` ({len(summary['tags_added'])} tag{'s' if len(summary['tags_added']) != 1 else ''})",
+            value=tag_list,
+            inline=False
+        )
+        total_chars += len(summary["file"]) + len(tag_list)
+
+    if cutoff or len(summaries) > max_fields:
+        embed.set_footer(text="⚠️ Truncated summary due to Discord embed limits.")
+
+    await message.channel.send(embed=embed)
 
                 await message.channel.send("📦 Here's your fixed addon:",
                     file=discord.File(fixed_path))
