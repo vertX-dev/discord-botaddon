@@ -110,7 +110,7 @@ def compress_image(image, max_size=(64, 64)):
     return compressed_image
 
 def apply_column_saturation(image, num_columns, saturation_percent=100):
-    """Apply specified % black saturation to the first num_columns columns"""
+    """Apply specified % black saturation to the last num_columns columns (right to left)"""
     # Create a copy of the image
     result_image = image.copy()
     
@@ -131,7 +131,8 @@ def apply_column_saturation(image, num_columns, saturation_percent=100):
     pixels = result_image.load()
     
     for y in range(height):
-        for x in range(num_columns):  # Only process first num_columns columns
+        # Process columns from right to left (last num_columns columns)
+        for x in range(width - num_columns, width):
             r, g, b, a = pixels[x, y]
             
             # Only process non-transparent pixels
@@ -146,7 +147,7 @@ def apply_column_saturation(image, num_columns, saturation_percent=100):
     return result_image
 
 def process_image_columns(image, saturation_percent=100):
-    """Process image and create column-wise saturated versions"""
+    """Process image and create column-wise saturated versions (right to left)"""
     # Convert to RGBA if needed
     if image.mode != 'RGBA':
         image = image.convert('RGBA')
@@ -159,7 +160,7 @@ def process_image_columns(image, saturation_percent=100):
     
     # Process each column step (0 to width)
     for col in range(width + 1):  # +1 to include final state with all columns saturated
-        # Apply saturation to first 'col' columns
+        # Apply saturation to last 'col' columns (right to left)
         processed_img = apply_column_saturation(image, col, saturation_percent)
         processed_images.append(processed_img)
     
@@ -221,7 +222,7 @@ def create_zip_archive(processed_images, original_filename, compressed_size, sat
             zip_file.writestr(filename, img_bytes)
         
         # Create a readme file with information
-        readme_content = f"""Column Saturation Images
+        readme_content = f"""Column Saturation Images (Right to Left)
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Original file: {original_filename}
 Processed size: {compressed_size[0]}x{compressed_size[1]}
@@ -230,29 +231,18 @@ Total images: {len(processed_images)}
 
 File descriptions:
 - columns_00_of_XX_{saturation_percent}pct.png: Original image (0 columns affected)
-- columns_01_of_XX_{saturation_percent}pct.png: Column 1 with {saturation_percent}% saturation
-- columns_02_of_XX_{saturation_percent}pct.png: Columns 1-2 with {saturation_percent}% saturation
+- columns_01_of_XX_{saturation_percent}pct.png: Rightmost column with {saturation_percent}% saturation
+- columns_02_of_XX_{saturation_percent}pct.png: Last 2 columns with {saturation_percent}% saturation
 - ...
 - columns_XX_of_XX_{saturation_percent}pct.png: All columns with {saturation_percent}% saturation
 
-Each image shows {saturation_percent}% saturation applied to columns from left to right.
+Each image shows {saturation_percent}% saturation applied to columns from right to left.
 Only non-transparent pixels are affected.
 """
         zip_file.writestr("README.txt", readme_content)
     
     zip_buffer.seek(0)
     return zip_buffer.getvalue()
-    """Convert PIL Image to bytes with optional optimization"""
-    img_byte_arr = io.BytesIO()
-    
-    # Save with optimization to reduce file size
-    save_params = {'format': 'PNG'}
-    if optimize:
-        save_params['optimize'] = True
-        save_params['compress_level'] = 6  # Good balance between compression and speed
-    
-    image.save(img_byte_arr, **save_params)
-    return img_byte_arr.getvalue()
 
 def main():
     # Replace with your bot token
@@ -305,10 +295,10 @@ def main():
                             "• Examples: '50%', '75 percent', 'saturation 30'\n"
                             "• Valid range: 1% to 100%\n\n"
                             "🔄 How it works:\n"
-                            "Each image shows specified % saturation applied to columns:\n"
+                            "Each image shows specified % saturation applied to columns from RIGHT TO LEFT:\n"
                             "• Image 1 = 0 columns affected (original)\n"
-                            "• Image 2 = 1 column with X% saturation\n"
-                            "• Image 3 = 2 columns with X% saturation\n"
+                            "• Image 2 = Rightmost column with X% saturation\n"
+                            "• Image 3 = Last 2 columns with X% saturation\n"
                             "• ... and so on until all columns are saturated\n"
                             "• Only non-transparent pixels are affected\n\n"
                             "🗜️ Features:\n"
@@ -388,7 +378,7 @@ def main():
                                 f"🗜️ Image compressed from {original_size[0]}x{original_size[1]} to {compressed_size[0]}x{compressed_size[1]}")
                         
                         bot.send_message(chat_id, 
-                            f"Processing {compressed_size[0]}x{compressed_size[1]} image with {saturation_percent}% saturation.\n"
+                            f"Processing {compressed_size[0]}x{compressed_size[1]} image with {saturation_percent}% saturation (right to left).\n"
                             f"Creating {compressed_size[0] + 1} variations and compressing to ZIP...")
                         
                         # Process the image with user's saturation setting
@@ -403,7 +393,7 @@ def main():
                         
                         # Create caption for the ZIP file
                         zip_caption = (
-                            f"📁 Column Saturation Archive\n"
+                            f"📁 Column Saturation Archive (Right to Left)\n"
                             f"🖼️ {len(processed_images)} PNG images\n"
                             f"📏 {compressed_size[0]}x{compressed_size[1]} pixels\n"
                             f"🎛️ {saturation_percent}% saturation level\n"
@@ -418,6 +408,7 @@ def main():
                                 f"✅ Success! ZIP archive contains {len(processed_images)} processed images.\n"
                                 f"📦 File size: {len(zip_data)} bytes\n"
                                 f"🎛️ Saturation level: {saturation_percent}%\n"
+                                f"🔄 Direction: Right to Left\n"
                                 f"💡 Extract the ZIP to access all images and the README file.\n\n"
                                 f"💬 Send a new percentage (e.g., '75%') to change saturation level.")
                         else:
